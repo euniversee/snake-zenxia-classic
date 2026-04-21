@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake Xenzia: Telekinesis — Retro Edition</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='5' height='5' fill='%23e83030'/%3E%3Crect x='3' y='0' width='1' height='2' fill='%231a8a1a'/%3E%3Crect x='8' y='8' width='7' height='7' fill='%2330e830'/%3E%3Crect x='10' y='10' width='2' height='2' fill='%23000'/%3E%3Crect x='11' y='11' width='1' height='1' fill='%23fff'/%3E%3Crect x='1' y='10' width='7' height='5' fill='%2320b020'/%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-dark:    #0f0e17;
+    --bg-mid:     #1a1a2e;
+    --panel-bg:   #1e1e34;
+    --panel-border:#3a3a5c;
+    --text:       #e0d8c0;
+    --text-dim:   #7a7590;
+    --pixel-green:#30e830;
+    --pixel-green-dim:#1a8a1a;
+    --pixel-red:  #e83030;
+    --pixel-yellow:#f0d020;
+    --pixel-gold: #f0a818;
+    --pixel-cyan: #30c8e8;
+    --pixel-blue: #4070f0;
+    --pixel-pink: #e830a0;
+    --shadow-dark: #08080f;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg-dark);
+    color: var(--text);
+    font-family: 'Press Start 2P', cursive;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    image-rendering: pixelated;
+  }
+
+  /* ═══ CRT SCANLINE OVERLAY ═══ */
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    pointer-events:none; z-index:1000;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0,0,0,0.12) 3px,
+      rgba(0,0,0,0.12) 6px
+    );
+    transform: translateZ(0);
+  }
+
+  /* ═══ CRT VIGNETTE ═══ */
+  body::after {
+    content:'';
+    position:fixed; inset:0;
+    pointer-events:none; z-index:999;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 65%,
+      rgba(0,0,0,0.2) 85%,
+      rgba(0,0,0,0.5) 100%
+    );
+  }
+
+  /* ═══ PIXEL STARS BACKGROUND ═══ */
+  .stars {
+    position:fixed; inset:0; z-index:0; overflow:hidden;
+  }
+  .star {
+    position:absolute; width:2px; height:2px;
+    background: var(--text-dim);
+    animation: twinkle 2s ease-in-out infinite alternate;
+  }
+  .star:nth-child(odd) { animation-duration: 3s; }
+  .star:nth-child(3n)  { animation-delay: 0.6s; }
+  .star:nth-child(5n)  { animation-delay: 1.2s; width:3px; height:3px; }
+  @keyframes twinkle {
+    0%  { opacity: 0.2; }
+    100%{ opacity: 0.8; }
+  }
+
+  /* ═══ SCREEN MANAGEMENT ═══ */
+  .screen {
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    width:100%;
+    z-index:1;
+    animation: screenIn 0.3s ease;
+  }
+  .screen.active { display:flex; }
+  @keyframes screenIn {
+    from { opacity:0; transform:translateY(8px); }
+    to   { opacity:1; transform:none; }
+  }
+
+  /* ═══ RETRO CORNER BRACKETS ═══ */
+  .corner {
+    position:fixed;
+    width:24px; height:24px;
+    z-index:2;
+  }
+  .corner.tl { top:8px; left:8px; border-top:3px solid var(--pixel-green); border-left:3px solid var(--pixel-green); }
+  .corner.tr { top:8px; right:8px; border-top:3px solid var(--pixel-green); border-right:3px solid var(--pixel-green); }
+  .corner.bl { bottom:8px; left:8px; border-bottom:3px solid var(--pixel-green); border-left:3px solid var(--pixel-green); }
+  .corner.br { bottom:8px; right:8px; border-bottom:3px solid var(--pixel-green); border-right:3px solid var(--pixel-green); }
+
+  /* ════════════════════════════════════════
+     TITLE SCREEN
+     ════════════════════════════════════════ */
+  .title-block { text-align:center; margin-bottom:20px; }
+
+  .eyebrow {
+    font-size:7px;
+    letter-spacing:3px;
+    color:var(--text-dim);
+    margin-bottom:10px;
+  }
+
+  .t-main {
+    font-size: clamp(22px, 5vw, 42px);
+    color: var(--pixel-green);
+    line-height: 1.4;
+    text-shadow:
+      3px 3px 0 var(--pixel-green-dim),
+      0 0 20px rgba(48,232,48,0.4);
+    letter-spacing: 4px;
+  }
+
+  .t-sub {
+    font-size: clamp(8px, 1.5vw, 11px);
+    color: var(--pixel-cyan);
+    letter-spacing: 6px;
+    margin-top: 8px;
+    text-shadow: 0 0 12px rgba(48,200,232,0.5);
+  }
+
+  /* ═══ HOME CARD ═══ */
+  .home-card {
+    background: var(--panel-bg);
+    border: 3px solid var(--panel-border);
+    padding: 16px 20px;
+    width: 400px;
+    max-width: 95vw;
+    box-shadow:
+      6px 6px 0 var(--shadow-dark),
+      inset 0 0 0 1px rgba(255,255,255,0.04);
+  }
+
+  /* ═══ CAMERA PREVIEW ═══ */
+  .cam-preview-home {
+    width: 100%;
+    aspect-ratio: 1/1;
+    background: #000;
+    border: 3px solid var(--panel-border);
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 12px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
+  }
+  .cam-preview-home video {
+    width:100%; height:100%;
+    object-fit:cover;
+    transform:scaleX(-1);
+    display:block;
+  }
+  .cam-badge {
+    position:absolute; bottom:4px; left:4px;
+    font-size:6px; letter-spacing:1px;
+    background:rgba(0,0,0,0.75);
+    color: var(--pixel-green);
+    padding:3px 6px;
+    border: 1px solid var(--pixel-green-dim);
+  }
+
+  /* ═══ DIFFICULTY SELECTOR ═══ */
+  .sel-group { margin-bottom: 11px; }
+  .sel-label {
+    font-size: 6px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .sel-row { display:flex; gap:4px; }
+
+  .sel-btn {
+    flex:1;
+    padding: 8px 4px;
+    background: var(--bg-dark);
+    border: 2px solid var(--panel-border);
+    color: var(--text-dim);
+    font-family: 'Press Start 2P', cursive;
+    font-size: 7px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.1s;
+    box-shadow: 2px 2px 0 var(--shadow-dark);
+    line-height: 1.8;
+  }
+  .sel-btn:hover {
+    border-color: var(--text);
+    color: var(--text);
+    transform: translateY(-1px);
+    box-shadow: 3px 3px 0 var(--shadow-dark);
+  }
+  .sel-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 0 0 var(--shadow-dark);
+  }
+  .sel-btn.active {
+    border-color: var(--pixel-cyan);
+    color: var(--pixel-cyan);
+    background: rgba(48,200,232,0.08);
+    box-shadow: 2px 2px 0 var(--shadow-dark), inset 0 0 8px rgba(48,200,232,0.08);
+  }
+  .sel-btn .sub { font-size:5px; opacity:.5; display:block; margin-top:2px; }
+
+  /* Difficulty-specific active colors */
+  .sel-btn[data-diff="easy"].active {
+    border-color: var(--pixel-green); color: var(--pixel-green);
+    background: rgba(48,232,48,0.06);
+  }
+  .sel-btn[data-diff="medium"].active {
+    border-color: var(--pixel-yellow); color: var(--pixel-yellow);
+    background: rgba(240,208,32,0.06);
+  }
+  .sel-btn[data-diff="hard"].active {
+    border-color: var(--pixel-red); color: var(--pixel-red);
+    background: rgba(232,48,48,0.06);
+  }
+
+  /* ═══ RETRO PIXEL BUTTONS ═══ */
+  .btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--pixel-green);
+    border: none;
+    border-bottom: 4px solid var(--pixel-green-dim);
+    border-right: 4px solid var(--pixel-green-dim);
+    color: var(--bg-dark);
+    font-family: 'Press Start 2P', cursive;
+    font-size: 9px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.05s;
+    box-shadow: 3px 3px 0 var(--shadow-dark);
+    position: relative;
+  }
+  .btn:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+    box-shadow: 4px 4px 0 var(--shadow-dark);
+  }
+  .btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 var(--shadow-dark);
+    border-bottom-width: 1px;
+    border-right-width: 1px;
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+  }
+
+  .btn-go {
+    background: var(--pixel-red);
+    border-bottom-color: #981818;
+    border-right-color: #981818;
+    color: #fff;
+  }
+
+  /* ═══ STATUS INDICATORS ═══ */
+  .status-line {
+    text-align: center;
+    font-size: 6px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin-top: 10px;
+  }
+  .sdot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--pixel-red);
+    margin-right: 5px;
+    vertical-align: middle;
+    animation: blink 1s step-end infinite;
+  }
+  .sdot.ready { background: var(--pixel-green); animation: none; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  .load-wrap {
+    width:100%; height:4px;
+    background: rgba(48,232,48,0.08);
+    margin-top:10px;
+    overflow:hidden;
+    border: 1px solid var(--panel-border);
+  }
+  .load-bar {
+    height:100%;
+    background: var(--pixel-green);
+    width:0%;
+    box-shadow: 0 0 6px var(--pixel-green);
+    transition: width 0.1s step-end;
+  }
+
+  /* ════════════════════════════════════════
+     COUNTDOWN
+     ════════════════════════════════════════ */
+  .cd-num {
+    font-size: 80px;
+    color: var(--pixel-green);
+    text-shadow:
+      4px 4px 0 var(--pixel-green-dim),
+      0 0 30px rgba(48,232,48,0.6);
+    animation: cdpop 1s steps(4);
+  }
+  .cd-lbl {
+    font-size: 7px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    margin-top: 18px;
+  }
+  @keyframes cdpop {
+    0%   { transform:scale(2); opacity:0; }
+    40%  { transform:scale(1); opacity:1; }
+    100% { transform:scale(0.9); opacity:0.7; }
+  }
+
+  /* ════════════════════════════════════════
+     GAME SCREEN
+     ════════════════════════════════════════ */
+  #screen-game {
+    position:relative;
+    width:100vw; height:100vh;
+    align-items:flex-start;
+    justify-content:flex-start;
+  }
+
+  .hud {
+    position:absolute; top:0; left:0; width:100%;
+    display:flex; align-items:flex-start;
+    justify-content:space-between;
+    padding:10px 16px 0;
+    z-index:10;
+  }
+
+  .score-box {}
+  .score-box .lbl {
+    font-size:6px; letter-spacing:3px;
+    color:var(--text-dim);
+    display:block; margin-bottom:3px;
+  }
+  .score-box .val {
+    font-size:16px;
+    color:var(--pixel-green);
+    text-shadow: 2px 2px 0 var(--pixel-green-dim);
+  }
+
+  .spd-box {
+    font-size:7px; letter-spacing:2px;
+    color:var(--text-dim);
+    padding-top:4px;
+  }
+
+
+
+  .game-wrap {
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%, -50%);
+    width: 100vw;
+    padding: 0 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  #gameCanvas {
+    display:block;
+    width: 100%;
+    max-width: 640px;
+    height: auto;
+    max-height: calc(100vh - 240px); /* Leave space for PIP camera and bottom controls */
+    aspect-ratio: 640 / 400;
+    object-fit: contain;
+    border:3px solid var(--panel-border);
+    box-shadow: 6px 6px 0 var(--shadow-dark);
+    image-rendering: pixelated;
+  }
+
+  /* ═══ JACKPOT BAR ═══ */
+  #jackpotBar {
+    position:absolute;
+    bottom:110px; left:50%;
+    transform:translateX(-50%);
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    gap:5px;
+    z-index:10;
+  }
+  .jbar-lbl {
+    font-size:7px; letter-spacing:2px;
+    color:var(--pixel-gold);
+    text-shadow: 2px 2px 0 rgba(240,168,24,0.3);
+    animation: jpblink 0.5s step-end infinite;
+  }
+  .jbar-track {
+    width:140px; height:6px;
+    background:rgba(240,168,24,0.12);
+    overflow:hidden;
+    border: 1px solid var(--pixel-gold);
+  }
+  .jbar-fill {
+    height:100%;
+    background:var(--pixel-gold);
+    box-shadow: 0 0 4px var(--pixel-gold);
+    width:100%;
+  }
+  @keyframes jpblink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ═══ GAME BOTTOM BAR ═══ */
+  .game-bottom-bar {
+    position: absolute;
+    bottom: 0; left: 0; width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 10px 16px 14px;
+    z-index: 10;
+    background: linear-gradient(transparent, rgba(15,14,23,0.85) 40%);
+  }
+
+  /* ═══ RESPONSIVE MOBILE ADJUSTMENTS ═══ */
+  @media (max-width: 600px) {
+    .score-box .val { font-size: 14px; }
+    #gameCanvas { border-width: 2px; box-shadow: 3px 3px 0 var(--shadow-dark); max-height: calc(100vh - 200px); }
+    .game-bottom-bar { padding: 8px 10px 12px; gap: 10px; }
+    
+    .dpad-wrap { display: flex; transform: scale(0.9); }
+    
+    .bar-btn { font-size: 12px; padding: 6px 8px; }
+    .bar-btn-surrender { font-size: 5px; padding: 6px 6px; }
+    #jackpotBar { bottom: 95px; }
+  }
+
+  /* ═══ D-PAD ═══ */
+  .dpad-wrap {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.7;
+  }
+  .dpad-mid { display: flex; gap: 40px; }
+  .dpad-btn {
+    width: 44px; height: 44px;
+    background: var(--panel-bg);
+    border: 2px solid var(--panel-border);
+    color: var(--text);
+    font-size: 16px;
+    font-family: inherit;
+    box-shadow: 2px 2px 0 var(--shadow-dark);
+    cursor: pointer;
+    transition: all 0.05s;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .dpad-btn:active, .dpad-btn.active {
+    background: var(--pixel-cyan);
+    color: var(--bg-dark);
+    transform: translateY(2px);
+    box-shadow: 0 0 0 var(--shadow-dark);
+  }
+
+  /* Bottom bar buttons */
+  .bar-btn {
+    background: var(--panel-bg);
+    border: 2px solid var(--panel-border);
+    color: var(--text);
+    font-family: 'Press Start 2P', cursive;
+    font-size: 14px;
+    padding: 8px 10px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--shadow-dark);
+    transition: all 0.05s;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .bar-btn:hover {
+    border-color: var(--pixel-cyan);
+    transform: translateY(-1px);
+    box-shadow: 3px 3px 0 var(--shadow-dark);
+  }
+  .bar-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 0 0 var(--shadow-dark);
+  }
+  .bar-btn.muted { opacity: 0.45; }
+
+  .bar-btn-surrender {
+    font-size: 6px;
+    padding: 8px 10px;
+    color: var(--pixel-red);
+    border-color: rgba(232,48,48,0.4);
+    letter-spacing: 1px;
+  }
+  .bar-btn-surrender:hover {
+    border-color: var(--pixel-red);
+    color: #fff;
+    background: rgba(232,48,48,0.15);
+  }
+
+  /* ════════════════════════════════════════
+     GAME OVER
+     ════════════════════════════════════════ */
+  .go-card {
+    background: var(--panel-bg);
+    border: 3px solid var(--pixel-red);
+    padding: 28px 36px;
+    text-align: center;
+    min-width: 320px;
+    box-shadow: 6px 6px 0 var(--shadow-dark);
+  }
+  .go-title {
+    font-size: 20px;
+    color: var(--pixel-red);
+    letter-spacing: 3px;
+    text-shadow: 3px 3px 0 #981818;
+    margin-bottom: 4px;
+    animation: goFlash 0.6s step-end infinite;
+  }
+  .go-sub {
+    font-size:6px; letter-spacing:2px;
+    color:rgba(232,48,48,0.5);
+    margin-bottom:24px;
+  }
+  .final-lbl {
+    font-size:6px; letter-spacing:3px;
+    color:var(--text-dim);
+    margin-bottom:6px;
+  }
+  .final-num {
+    font-size:40px;
+    color:var(--pixel-yellow);
+    text-shadow: 3px 3px 0 rgba(240,208,32,0.4);
+    line-height:1; margin-bottom:8px;
+  }
+  .hi-line {
+    font-size:7px; letter-spacing:2px;
+    color:var(--text-dim);
+    margin-bottom:24px;
+  }
+  .hi-line span { color:var(--pixel-yellow); }
+
+  .go-btn-row {
+    display: flex;
+    gap: 8px;
+  }
+  .go-btn-row .btn {
+    flex: 1;
+    font-size: 7px;
+    padding: 10px 8px;
+  }
+  .btn-home {
+    background: var(--panel-border);
+    border-bottom-color: #2a2a44;
+    border-right-color: #2a2a44;
+    color: var(--text);
+  }
+
+  @keyframes goFlash {
+    0%,100% { opacity:1; }
+    50%     { opacity:0.4; }
+  }
+
+
+</style>
+</head>
+<body>
+<div class="stars" id="starsBg"></div>
+<div class="corner tl"></div>
+<div class="corner tr"></div>
+<div class="corner bl"></div>
+<div class="corner br"></div>
+
+
+<!-- ═══ HOME SCREEN ═══ -->
+<div id="screen-home" class="screen active">
+  <div class="title-block">
+    <div class="eyebrow">★ CLASSIC EDITION ★</div>
+    <div class="t-main">SNAKE<br>XENZIA</div>
+    <div class="t-sub">CLASSIC</div>
+  </div>
+
+  <div class="home-card">
+    <div class="instructions" style="font-size: 10px; color: var(--text-dim); text-align: center; margin: 10px 0 20px 0; line-height: 2; font-family: 'Press Start 2P', cursive;">
+      <span style="color:var(--pixel-cyan)">DESKTOP:</span> WASD / ARROW KEYS<br>
+      <span style="color:var(--pixel-cyan)">MOBILE:</span> ON-SCREEN D-PAD
+    </div>
+
+    <!-- Difficulty -->
+    <div class="sel-group">
+      <span class="sel-label">► DIFFICULTY</span>
+      <div class="sel-row">
+        <button class="sel-btn" data-diff="easy">EASY<span class="sub">CHILL</span></button>
+        <button class="sel-btn active" data-diff="medium">MEDIUM<span class="sub">NORMAL</span></button>
+        <button class="sel-btn" data-diff="hard">HARD<span class="sub">SWEAT</span></button>
+      </div>
+    </div>
+
+    <button class="btn" id="btnStart">► PRESS START</button>
+    <div class="status-line">
+      <span class="sdot ready" id="sdot"></span>
+      <span id="stext">SYSTEM READY</span>
+    </div>
+    <div class="load-wrap"><div class="load-bar" id="loadBar" style="width:100%"></div></div>
+  </div>
+</div>
+
+<!-- ═══ COUNTDOWN ═══ -->
+<div id="screen-countdown" class="screen">
+  <div class="cd-num" id="cdNum">3</div>
+  <div class="cd-lbl">GET READY!</div>
+</div>
+
+<!-- ═══ GAME ═══ -->
+<div id="screen-game" class="screen">
+  <div class="hud">
+    <div class="score-box">
+      <span class="lbl">SCORE</span>
+      <span class="val" id="scoreVal">000</span>
+    </div>
+    <div class="spd-box">SPD <span id="spdVal">1.0</span>x</div>
+
+  </div>
+
+  <div class="game-wrap">
+    <canvas id="gameCanvas" width="640" height="400"></canvas>
+  </div>
+
+  <div id="jackpotBar">
+    <div class="jbar-lbl">★ JACKPOT! ★</div>
+    <div class="jbar-track"><div class="jbar-fill" id="jbarFill"></div></div>
+  </div>
+
+  <!-- BOTTOM BAR: analog + direction + sound + surrender -->
+  <div class="game-bottom-bar">
+    <div class="dpad-wrap">
+      <button class="dpad-btn up" data-dir="UP">▲</button>
+      <div class="dpad-mid">
+        <button class="dpad-btn left" data-dir="LEFT">◄</button>
+        <button class="dpad-btn right" data-dir="RIGHT">►</button>
+      </div>
+      <button class="dpad-btn down" data-dir="DOWN">▼</button>
+    </div>
+    <button class="bar-btn" id="barSoundToggle" title="Toggle Sound">🔊</button>
+    <button class="bar-btn bar-btn-surrender" id="btnSurrender" title="Surrender">☠ GIVE UP</button>
+  </div>
+</div>
+
+<!-- ═══ GAME OVER ═══ -->
+<div id="screen-gameover" class="screen">
+  <div class="go-card">
+    <div class="go-title">GAME OVER</div>
+    <div class="go-sub">★ INSERT COIN ★</div>
+    <div class="final-lbl">FINAL SCORE</div>
+    <div class="final-num" id="finalScore">0</div>
+    <div class="hi-line">HI-SCORE: <span id="hiScore">0</span></div>
+    <div class="go-btn-row">
+      <button class="btn btn-home" id="btnHome">◄ HOME</button>
+      <button class="btn btn-go" id="btnReplay">► RETRY</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BACKGROUND MUSIC ═══ -->
+<audio id="bgMusic" loop preload="auto"
+  src="https://res.cloudinary.com/dad4b97rw/video/upload/v1776733898/bubble_fountain_cnfhso.mp3">
+</audio>
+
+
+<script>
+// ══════════════════════════════════════════
+//  PIXEL STAR BACKGROUND
+// ══════════════════════════════════════════
+(function generateStars() {
+  const container = document.getElementById('starsBg');
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.left = Math.random() * 100 + '%';
+    s.style.top  = Math.random() * 100 + '%';
+    s.style.animationDelay = (Math.random() * 3) + 's';
+    container.appendChild(s);
+  }
+})();
+
+// ══════════════════════════════════════════
+//  SOUND SYSTEM
+// ══════════════════════════════════════════
+const bgMusic = document.getElementById('bgMusic');
+const barSoundToggle = document.getElementById('barSoundToggle');
+let audioCtx = null;
+let soundEnabled = true;
+let musicStarted = false;
+
+function ensureAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+const MUSIC_MAX_VOL = 0.35;
+const FADE_DURATION = 1500; // ms
+let musicFadeInterval = null;
+
+function startMusic() {
+  if (musicStarted) return;
+  musicStarted = true;
+  if (!soundEnabled) return;
+  bgMusic.volume = 0;
+  bgMusic.play().catch(() => {});
+  fadeMusic('in');
+}
+
+function fadeMusic(dir) {
+  clearInterval(musicFadeInterval);
+  if (dir === 'out') {
+    bgMusic.pause();
+    bgMusic.volume = 0;
+    return;
+  }
+  const steps = 30;
+  const stepTime = FADE_DURATION / steps;
+  let current = bgMusic.volume;
+  const target = MUSIC_MAX_VOL;
+  const delta = (target - current) / steps;
+  let step = 0;
+  musicFadeInterval = setInterval(() => {
+    step++;
+    current += delta;
+    bgMusic.volume = Math.max(0, Math.min(MUSIC_MAX_VOL, current));
+    if (step >= steps) {
+      clearInterval(musicFadeInterval);
+      bgMusic.volume = target;
+    }
+  }, stepTime);
+}
+
+function playRetroBlip(freq = 680, dur = 0.07, type = 'square') {
+  if (!soundEnabled) return;
+  ensureAudioCtx();
+  const osc  = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(freq * 1.3, audioCtx.currentTime + dur * 0.3);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.6, audioCtx.currentTime + dur);
+  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + dur);
+}
+
+function playButtonClick() {
+  playRetroBlip(880, 0.06, 'square');
+}
+
+function playSelectClick() {
+  playRetroBlip(520, 0.05, 'square');
+}
+
+function playEatSound() {
+  if (!soundEnabled) return;
+  ensureAudioCtx();
+  const osc  = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.06);
+  osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+  gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.12);
+}
+
+function playJackpotSound() {
+  if (!soundEnabled) return;
+  ensureAudioCtx();
+  // Arpeggio for jackpot
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((f, i) => {
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = f;
+    const t = audioCtx.currentTime + i * 0.08;
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.15);
+  });
+}
+
+function playGameOverSound() {
+  if (!soundEnabled) return;
+  ensureAudioCtx();
+  const notes = [440, 349, 261, 196];
+  notes.forEach((f, i) => {
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = f;
+    const t = audioCtx.currentTime + i * 0.15;
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.25);
+  });
+}
+
+function playCountdownBeep() {
+  playRetroBlip(600, 0.12, 'square');
+}
+
+function playGoBeep() {
+  playRetroBlip(1200, 0.2, 'square');
+}
+
+function handleSoundToggle() {
+  soundEnabled = !soundEnabled;
+  if (barSoundToggle) {
+    barSoundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+    barSoundToggle.classList.toggle('muted', !soundEnabled);
+  }
+  if (soundEnabled) {
+    ensureAudioCtx();
+    if (musicStarted) { bgMusic.play().catch(() => {}); fadeMusic('in'); }
+    else startMusic();
+    playButtonClick();
+  } else {
+    fadeMusic('out');
+  }
+}
+
+// ══════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════
+const CELL = 20, COLS = 32, ROWS = 20;
+
+const DIFF_CFG = {
+  easy:   { base:220, min:130, step:14 },
+  medium: { base:150, min: 78, step:11 },
+  hard:   { base: 98, min: 52, step: 8 },
+};
+
+const DIRS = { RIGHT:{x:1,y:0}, LEFT:{x:-1,y:0}, UP:{x:0,y:-1}, DOWN:{x:0,y:1} };
+const OPP  = { RIGHT:'LEFT', LEFT:'RIGHT', UP:'DOWN', DOWN:'UP' };
+
+// Jackpot
+const JP_DURATION  = 6000;
+const JP_POINTS    = 50;
+const JP_EVERY_MIN = 3;
+const JP_EVERY_MAX = 7;
+const MIN_VEC_LEN  = 0.035;
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let snake, direction, nextDir, food, jackpot = null;
+let score = 0, hiScore = 0, speed = 150;
+let gameLoop = null, gameRunning = false;
+let applesUntilJP = 0, jpStart = 0, jpIntervalId = null;
+let jpFlashFrames = 0;
+
+let selectedDiff = 'medium';
+
+// ══════════════════════════════════════════
+//  ELEMENTS
+// ══════════════════════════════════════════
+const gameCanvas = document.getElementById('gameCanvas');
+const gctx       = gameCanvas.getContext('2d');
+const btnStart   = document.getElementById('btnStart');
+const sdot       = document.getElementById('sdot');
+const stext      = document.getElementById('stext');
+const loadBar    = document.getElementById('loadBar');
+const scoreVal   = document.getElementById('scoreVal');
+const spdVal     = document.getElementById('spdVal');
+const jackpotBar = document.getElementById('jackpotBar');
+const jbarFill   = document.getElementById('jbarFill');
+
+// ══════════════════════════════════════════
+//  SCREEN MANAGER
+// ══════════════════════════════════════════
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ══════════════════════════════════════════
+//  DIFFICULTY SELECTOR
+// ══════════════════════════════════════════
+document.querySelectorAll('[data-diff]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-diff]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedDiff = btn.dataset.diff;
+    playSelectClick();
+    ensureAudioCtx();
+    startMusic();
+  });
+});
+
+// ══════════════════════════════════════════
+//  SYSTEM INIT
+// ══════════════════════════════════════════
+function initReady() {
+  setTimeout(() => {
+    btnStart.disabled = false;
+    btnStart.textContent = '► PRESS START';
+    sdot.classList.add('ready');
+    stext.textContent = 'SYSTEM READY';
+    loadBar.style.width = '100%';
+  }, 300);
+}
+
+// ══════════════════════════════════════════
+//  GAME LOGIC
+// ══════════════════════════════════════════
+function randRange(a, b) {
+  return Math.floor(Math.random() * (b - a + 1)) + a;
+}
+
+function initGame() {
+  const sx = Math.floor(COLS/2), sy = Math.floor(ROWS/2);
+  snake = [{x:sx,y:sy},{x:sx-1,y:sy},{x:sx-2,y:sy}];
+  direction = 'RIGHT'; nextDir = 'RIGHT';
+  score = 0; jackpot = null; jpFlashFrames = 0;
+  speed = DIFF_CFG[selectedDiff].base;
+  applesUntilJP = randRange(JP_EVERY_MIN, JP_EVERY_MAX);
+  updateScore(0);
+  spdVal.textContent = '1.0';
+  spawnFood();
+  hideJP();
+}
+
+function spawnFood() {
+  let p;
+  do {
+    p = { x: randRange(0, COLS-1), y: randRange(0, ROWS-1) };
+  } while (
+    snake.some(s => s.x===p.x && s.y===p.y) ||
+    (jackpot && jackpot.x===p.x && jackpot.y===p.y)
+  );
+  food = p;
+}
+
+function spawnJP() {
+  let p;
+  do {
+    // Keep jackpot away from edges to fit 2x rendering
+    p = { x: randRange(1, COLS-2), y: randRange(1, ROWS-2) };
+  } while (
+    snake.some(s => s.x===p.x && s.y===p.y) ||
+    (food.x===p.x && food.y===p.y)
+  );
+  jackpot = p; jpStart = performance.now();
+  jackpotBar.style.display = 'flex';
+  jbarFill.style.width = '100%';
+  playJackpotSound();
+  clearInterval(jpIntervalId);
+  jpIntervalId = setInterval(() => {
+    const pct = Math.max(0, 100 * (1 - (performance.now() - jpStart) / JP_DURATION));
+    jbarFill.style.width = pct + '%';
+    if (pct <= 0) hideJP();
+  }, 80);
+}
+
+function hideJP() {
+  clearInterval(jpIntervalId);
+  jackpot = null;
+  jackpotBar.style.display = 'none';
+}
+
+function gameTick() {
+  direction = nextDir;
+  const head = {
+    x: (snake[0].x + DIRS[direction].x + COLS) % COLS,
+    y: (snake[0].y + DIRS[direction].y + ROWS) % ROWS
+  };
+
+  if (snake.some(s => s.x===head.x && s.y===head.y)) { endGame(); return; }
+
+  snake.unshift(head);
+
+  if (head.x===food.x && head.y===food.y) {
+    score += 10;
+    applesUntilJP--;
+    playEatSound();
+    spawnFood();
+    if (applesUntilJP <= 0 && !jackpot) {
+      spawnJP();
+      applesUntilJP = randRange(JP_EVERY_MIN, JP_EVERY_MAX);
+    }
+    accelerate();
+  } else if (jackpot && Math.abs(head.x - jackpot.x) <= 1 && Math.abs(head.y - jackpot.y) <= 1) {
+    // Jackpot collision: 2x area — check within 1 cell radius
+    score += JP_POINTS;
+    hideJP();
+    jpFlashFrames = 8;
+    playJackpotSound();
+    accelerate();
+  } else {
+    snake.pop();
+  }
+
+  updateScore(score);
+  drawGame();
+}
+
+function accelerate() {
+  const cfg = DIFF_CFG[selectedDiff];
+  speed = Math.max(cfg.min, speed - cfg.step);
+  spdVal.textContent = (DIFF_CFG[selectedDiff].base / speed).toFixed(1);
+  clearInterval(gameLoop);
+  gameLoop = setInterval(gameTick, speed);
+}
+
+function updateScore(s) { scoreVal.textContent = String(s).padStart(3, '0'); }
+
+// ══════════════════════════════════════════
+//  PIXEL-ART RENDER
+// ══════════════════════════════════════════
+const W = COLS * CELL, H = ROWS * CELL;
+
+function drawGame() {
+  // Dark indigo background
+  gctx.fillStyle = '#0f0e17';
+  gctx.fillRect(0, 0, W, H);
+
+  // Pixel dot grid
+  gctx.fillStyle = 'rgba(58,58,92,0.25)';
+  for (let i = 0; i <= COLS; i++) {
+    for (let j = 0; j <= ROWS; j++) {
+      gctx.fillRect(i * CELL, j * CELL, 1, 1);
+    }
+  }
+
+  // Jackpot flash
+  if (jpFlashFrames > 0) {
+    gctx.fillStyle = `rgba(240,168,24,${jpFlashFrames * 0.05})`;
+    gctx.fillRect(0, 0, W, H);
+    jpFlashFrames--;
+  }
+
+  // Food — pixel apple
+  drawPixelApple(food.x, food.y);
+
+  // Jackpot — 2× larger pixel star
+  if (jackpot) drawPixelJackpot(jackpot.x, jackpot.y);
+
+  // Snake — pixel blocks
+  for (let i = snake.length - 1; i >= 0; i--) {
+    const seg = snake[i];
+    const bright = i === 0 ? 1 : Math.max(0.35, 1 - i * 0.035);
+
+    if (i === 0) {
+      // Head — brightest green with pixel outline
+      gctx.fillStyle = '#30e830';
+      gctx.fillRect(seg.x * CELL + 1, seg.y * CELL + 1, CELL - 2, CELL - 2);
+      // Pixel highlight on head
+      gctx.fillStyle = '#70ff70';
+      gctx.fillRect(seg.x * CELL + 2, seg.y * CELL + 2, 3, 3);
+      // Eyes
+      drawPixelEyes(seg);
+    } else {
+      // Body segments — checkerboard pixel pattern
+      const g = Math.floor(180 * bright);
+      const b = Math.floor(30 * bright);
+      gctx.fillStyle = `rgb(${Math.floor(20*bright)},${g},${b})`;
+      gctx.fillRect(seg.x * CELL + 1, seg.y * CELL + 1, CELL - 2, CELL - 2);
+      // Inner pixel detail
+      if (i % 2 === 0) {
+        gctx.fillStyle = `rgba(48,232,48,${bright * 0.3})`;
+        gctx.fillRect(seg.x * CELL + 3, seg.y * CELL + 3, CELL - 6, CELL - 6);
+      }
+    }
+  }
+}
+
+function drawPixelApple(cx, cy) {
+  const x = cx * CELL, y = cy * CELL;
+  // Apple body — red pixel block
+  gctx.fillStyle = '#e83030';
+  gctx.fillRect(x + 3, y + 5, CELL - 6, CELL - 7);
+  gctx.fillRect(x + 5, y + 3, CELL - 10, 2);
+  gctx.fillRect(x + 5, y + CELL - 3, CELL - 10, 1);
+  // Stem
+  gctx.fillStyle = '#1a8a1a';
+  gctx.fillRect(x + CELL/2 - 1, y + 1, 2, 4);
+  // Leaf
+  gctx.fillStyle = '#30e830';
+  gctx.fillRect(x + CELL/2 + 1, y + 2, 3, 2);
+  // Highlight pixel
+  gctx.fillStyle = '#ff8080';
+  gctx.fillRect(x + 5, y + 6, 2, 2);
+}
+
+function drawPixelJackpot(cx, cy) {
+  // 2× larger — occupies roughly a 2x2 cell area centered on (cx,cy)
+  const centerX = cx * CELL + CELL / 2;
+  const centerY = cy * CELL + CELL / 2;
+  const size = CELL; // half-size of the star area
+
+  const t = performance.now() / 400;
+  const pulse = Math.sin(t) * 0.15 + 1;
+
+  gctx.save();
+
+  // Glow aura
+  gctx.fillStyle = `rgba(240,168,24,${0.08 + 0.04 * Math.sin(t)})`;
+  gctx.fillRect(centerX - size * pulse, centerY - size * pulse, size * 2 * pulse, size * 2 * pulse);
+
+  // Outer star body — golden pixel blocks
+  gctx.fillStyle = '#f0a818';
+  // Horizontal bar
+  gctx.fillRect(centerX - size + 2, centerY - 4, (size - 2) * 2, 8);
+  // Vertical bar (cross)
+  gctx.fillRect(centerX - 4, centerY - size + 2, 8, (size - 2) * 2);
+  // Diagonal fills to make star shape
+  gctx.fillRect(centerX - size + 6, centerY - 8, size * 2 - 12, 16);
+  gctx.fillRect(centerX - 8, centerY - size + 6, 16, size * 2 - 12);
+
+  // Inner highlight
+  gctx.fillStyle = '#ffe070';
+  gctx.fillRect(centerX - 4, centerY - 4, 8, 8);
+  // Center pixel
+  gctx.fillStyle = '#fff8d0';
+  gctx.fillRect(centerX - 2, centerY - 2, 4, 4);
+
+  // Corner sparkle pixels that animate
+  const sparkleOffset = Math.floor(t * 2) % 2;
+  gctx.fillStyle = `rgba(255,255,200,${0.4 + 0.4 * Math.sin(t * 3)})`;
+  if (sparkleOffset === 0) {
+    gctx.fillRect(centerX - size + 3, centerY - 1, 2, 2);
+    gctx.fillRect(centerX + size - 5, centerY - 1, 2, 2);
+  } else {
+    gctx.fillRect(centerX - 1, centerY - size + 3, 2, 2);
+    gctx.fillRect(centerX - 1, centerY + size - 5, 2, 2);
+  }
+
+  // Timer text
+  const elapsed = performance.now() - jpStart;
+  const secLeft = Math.ceil(Math.max(0, (JP_DURATION - elapsed) / 1000));
+  gctx.fillStyle = secLeft <= 2 ? '#e83030' : '#f0a818';
+  gctx.font = 'bold 8px "Press Start 2P"';
+  gctx.textAlign = 'center';
+  gctx.fillText(secLeft + 's', centerX, centerY + size + 12);
+
+  gctx.restore();
+}
+
+function drawPixelEyes(seg) {
+  gctx.fillStyle = '#0f0e17';
+  const ex = seg.x * CELL, ey = seg.y * CELL;
+  const eyePos = {
+    RIGHT:[{x:14,y:5},{x:14,y:13}], LEFT:[{x:4,y:5},{x:4,y:13}],
+    UP:   [{x:5,y:4},{x:13,y:4}],   DOWN:[{x:5,y:14},{x:13,y:14}]
+  };
+  for (const o of eyePos[direction]) {
+    // Pixel square eyes instead of circles
+    gctx.fillRect(ex + o.x - 2, ey + o.y - 2, 4, 4);
+    // Pupil highlight
+    gctx.fillStyle = '#ffffff';
+    gctx.fillRect(ex + o.x - 1, ey + o.y - 1, 2, 2);
+    gctx.fillStyle = '#0f0e17';
+  }
+}
+
+let lastRender = 0;
+// RAF loop for jackpot animation capped at ~20 FPS for performance
+function renderLoop(time) {
+  if (!gameRunning) return;
+  requestAnimationFrame(renderLoop);
+  if (time - lastRender < 50) return; 
+  if (jackpot || jpFlashFrames > 0) {
+    drawGame();
+    lastRender = time;
+  }
+}
+
+// ══════════════════════════════════════════
+//  GAME FLOW
+// ══════════════════════════════════════════
+function startCountdown() {
+  ensureAudioCtx();
+  startMusic();
+  playButtonClick();
+  show('screen-countdown');
+  let n = 3;
+  const el = document.getElementById('cdNum');
+  el.textContent = n; el.style.color = '';
+  playCountdownBeep();
+  const iv = setInterval(() => {
+    n--;
+    if (n <= 0) {
+      clearInterval(iv);
+      el.textContent = 'GO!';
+      el.style.color = 'var(--pixel-cyan)';
+      playGoBeep();
+      setTimeout(startGame, 700);
+    } else {
+      el.textContent = n;
+      el.style.animation = 'none';
+      requestAnimationFrame(() => el.style.animation = '');
+      playCountdownBeep();
+    }
+  }, 1000);
+}
+
+function startGame() {
+  show('screen-game');
+  initGame(); drawGame();
+  gameRunning = true;
+  gameLoop = setInterval(gameTick, speed);
+  requestAnimationFrame(renderLoop);
+}
+
+function endGame() {
+  gameRunning = false;
+  clearInterval(gameLoop);
+  hideJP();
+  playGameOverSound();
+  if (score > hiScore) hiScore = score;
+  // Reset analog stick
+  
+  setTimeout(() => {
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('hiScore').textContent   = hiScore;
+    show('screen-gameover');
+  }, 400);
+}
+
+function surrenderGame() {
+  if (!gameRunning) return;
+  playButtonClick();
+  endGame();
+}
+
+function goHome() {
+  playButtonClick();
+  show('screen-home');
+}
+
+// ══════════════════════════════════════════
+//  BUTTONS
+// ══════════════════════════════════════════
+document.getElementById('btnStart').addEventListener('click', () => {
+  if (!btnStart.disabled) {
+    ensureAudioCtx();
+    startMusic();
+    startCountdown();
+  }
+});
+
+document.getElementById('btnReplay').addEventListener('click', () => {
+  playButtonClick();
+  startCountdown();
+});
+
+document.getElementById('btnHome').addEventListener('click', goHome);
+document.getElementById('btnSurrender').addEventListener('click', surrenderGame);
+document.getElementById('barSoundToggle').addEventListener('click', handleSoundToggle);
+
+// Keyboard & DPAD
+document.addEventListener('keydown', e => {
+  if (!gameRunning) return;
+  const map = {
+    ArrowUp:'UP', ArrowDown:'DOWN', ArrowLeft:'LEFT', ArrowRight:'RIGHT',
+    w:'UP', s:'DOWN', a:'LEFT', d:'RIGHT',
+    W:'UP', S:'DOWN', A:'LEFT', D:'RIGHT',
+  };
+  const d = map[e.key];
+  if (d && d !== OPP[direction]) { nextDir = d; e.preventDefault(); }
+});
+
+document.querySelectorAll('.dpad-btn').forEach(btn => {
+  const triggerDir = (e) => {
+    e.preventDefault();
+    if (!gameRunning) return;
+    const d = btn.dataset.dir;
+    if (d && d !== OPP[direction]) { nextDir = d; }
+  };
+  btn.addEventListener('touchstart', triggerDir);
+  btn.addEventListener('mousedown', triggerDir);
+});
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+window.addEventListener('load', initReady);
+</script>
+</body>
+</html>
