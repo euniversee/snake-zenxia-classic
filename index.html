@@ -442,34 +442,36 @@
   }
 
 
-  /* ═══ D-PAD ═══ */
-  .dpad-wrap {
+  /* ═══ MOBA ANALOG JOYSTICK ═══ */
+  #joystick-base {
     display: none;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    opacity: 0.7;
-  }
-  .dpad-mid { display: flex; gap: 40px; }
-  .dpad-btn {
-    width: 44px; height: 44px;
-    background: var(--panel-bg);
-    border: 2px solid var(--panel-border);
-    color: var(--text);
-    font-size: 16px;
-    font-family: inherit;
-    box-shadow: 2px 2px 0 var(--shadow-dark);
-    cursor: pointer;
-    transition: all 0.05s;
-    display: flex; align-items: center; justify-content: center;
+    width: 140px; height: 140px;
+    background: rgba(48, 232, 48, 0.05);
+    border: 3px solid rgba(48, 232, 48, 0.2);
+    border-radius: 50%;
+    position: relative;
+    touch-action: none;
+    box-shadow: inset 0 0 20px rgba(48, 232, 48, 0.1);
     user-select: none;
     -webkit-user-select: none;
   }
-  .dpad-btn:active, .dpad-btn.active {
-    background: var(--pixel-cyan);
-    color: var(--bg-dark);
-    transform: translateY(2px);
-    box-shadow: 0 0 0 var(--shadow-dark);
+  #joystick-stick {
+    width: 56px; height: 56px;
+    background: var(--panel-border);
+    border: 3px solid var(--pixel-green);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.6), inset 0 0 12px rgba(48, 232, 48, 0.3);
+    transition: transform 0.1s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    pointer-events: none;
+  }
+  #joystick-base.active #joystick-stick {
+    background: var(--panel-bg);
+    border-color: var(--pixel-cyan);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4), inset 0 0 15px rgba(0, 255, 255, 0.4);
+    transition: none; /* Instant follow when dragging */
   }
 
   /* ═══ RESPONSIVE MOBILE ADJUSTMENTS ═══ */
@@ -494,9 +496,7 @@
       display: flex; align-items: center; justify-content: center;
     }
     
-    .dpad-wrap { display: flex !important; transform: none; margin-top: 0; gap: 8px; }
-    .dpad-mid { gap: 68px; display: flex; }
-    .dpad-btn { width: 60px; height: 60px; font-size: 20px; }
+    #joystick-base { display: block !important; }
     
     .score-box .val { font-size: 14px; }
     .bar-btn { position: fixed; top: 15px; z-index: 100; padding: 10px; font-size: 12px; }
@@ -678,13 +678,8 @@
 
   <!-- BOTTOM BAR: analog + direction + sound + surrender -->
   <div class="game-bottom-bar">
-    <div class="dpad-wrap">
-      <button class="dpad-btn up" data-dir="UP">▲</button>
-      <div class="dpad-mid">
-        <button class="dpad-btn left" data-dir="LEFT">◄</button>
-        <button class="dpad-btn right" data-dir="RIGHT">►</button>
-      </div>
-      <button class="dpad-btn down" data-dir="DOWN">▼</button>
+    <div id="joystick-base">
+      <div id="joystick-stick"></div>
     </div>
     <button class="bar-btn" id="barSoundToggle" title="Toggle Sound">🔊</button>
     <button class="bar-btn bar-btn-surrender" id="btnSurrender" title="Surrender">☠ GIVE UP</button>
@@ -1325,16 +1320,67 @@ document.addEventListener('keydown', e => {
   if (d && d !== OPP[direction]) { nextDir = d; e.preventDefault(); }
 });
 
-document.querySelectorAll('.dpad-btn').forEach(btn => {
-  const triggerDir = (e) => {
-    e.preventDefault();
-    if (!gameRunning) return;
-    const d = btn.dataset.dir;
+// MOBA Analog Joystick
+const joystickBase = document.getElementById('joystick-base');
+const joystickStick = document.getElementById('joystick-stick');
+let isDraggingJoystick = false;
+let joyCenter = { x: 0, y: 0 };
+const joyRadius = 45; // Max pull distance from center
+
+function handleJoystickStart(e) {
+  if (!gameRunning) return;
+  e.preventDefault();
+  isDraggingJoystick = true;
+  const rect = joystickBase.getBoundingClientRect();
+  joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  joystickBase.classList.add('active');
+  handleJoystickMove(e);
+}
+
+function handleJoystickMove(e) {
+  if (!isDraggingJoystick || !gameRunning) return;
+  e.preventDefault();
+  const touch = e.touches ? e.touches[0] : e;
+  let dx = touch.clientX - joyCenter.x;
+  let dy = touch.clientY - joyCenter.y;
+  const distance = Math.hypot(dx, dy);
+  
+  if (distance > joyRadius) {
+    const angle = Math.atan2(dy, dx);
+    dx = Math.cos(angle) * joyRadius;
+    dy = Math.sin(angle) * joyRadius;
+  }
+  
+  joystickStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  
+  if (distance > joyRadius * 0.3) {
+    let d = null;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      d = dx > 0 ? 'RIGHT' : 'LEFT';
+    } else {
+      d = dy > 0 ? 'DOWN' : 'UP';
+    }
     if (d && d !== OPP[direction]) { nextDir = d; }
-  };
-  btn.addEventListener('touchstart', triggerDir);
-  btn.addEventListener('mousedown', triggerDir);
-});
+  }
+}
+
+function handleJoystickEnd(e) {
+  if (!isDraggingJoystick) return;
+  e.preventDefault();
+  isDraggingJoystick = false;
+  joystickBase.classList.remove('active');
+  joystickStick.style.transform = 'translate(-50%, -50%)';
+}
+
+if (joystickBase) {
+  joystickBase.addEventListener('touchstart', handleJoystickStart, {passive: false});
+  joystickBase.addEventListener('touchmove', handleJoystickMove, {passive: false});
+  joystickBase.addEventListener('touchend', handleJoystickEnd, {passive: false});
+  joystickBase.addEventListener('touchcancel', handleJoystickEnd, {passive: false});
+  joystickBase.addEventListener('mousedown', handleJoystickStart);
+  window.addEventListener('mousemove', handleJoystickMove);
+  window.addEventListener('mouseup', handleJoystickEnd);
+}
 
 // ══════════════════════════════════════════
 //  INIT
