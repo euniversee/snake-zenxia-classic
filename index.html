@@ -441,18 +441,6 @@
     background: linear-gradient(transparent, rgba(15,14,23,0.85) 40%);
   }
 
-  /* ═══ RESPONSIVE MOBILE ADJUSTMENTS ═══ */
-  @media (max-width: 600px) {
-    .score-box .val { font-size: 14px; }
-    #gameCanvas { border-width: 2px; box-shadow: 3px 3px 0 var(--shadow-dark); max-height: calc(100vh - 200px); }
-    .game-bottom-bar { padding: 8px 10px 12px; gap: 10px; }
-    
-    .dpad-wrap { display: flex; transform: scale(0.9); }
-    
-    .bar-btn { font-size: 12px; padding: 6px 8px; }
-    .bar-btn-surrender { font-size: 5px; padding: 6px 6px; }
-    #jackpotBar { bottom: 95px; }
-  }
 
   /* ═══ D-PAD ═══ */
   .dpad-wrap {
@@ -482,6 +470,19 @@
     color: var(--bg-dark);
     transform: translateY(2px);
     box-shadow: 0 0 0 var(--shadow-dark);
+  }
+
+  /* ═══ RESPONSIVE MOBILE ADJUSTMENTS ═══ */
+  @media (max-width: 600px) {
+    .score-box .val { font-size: 14px; }
+    #gameCanvas { border-width: 2px; box-shadow: 3px 3px 0 var(--shadow-dark); max-height: calc(100vh - 200px); }
+    .game-bottom-bar { padding: 8px 10px 12px; gap: 10px; }
+    
+    .dpad-wrap { display: flex !important; transform: scale(0.9); }
+    
+    .bar-btn { font-size: 12px; padding: 6px 8px; }
+    .bar-btn-surrender { font-size: 5px; padding: 6px 6px; }
+    #jackpotBar { bottom: 95px; }
   }
 
   /* Bottom bar buttons */
