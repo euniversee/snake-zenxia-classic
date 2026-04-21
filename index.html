@@ -442,10 +442,40 @@
   }
 
 
+  /* ═══ D-PAD ═══ */
+  .dpad-wrap {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.7;
+  }
+  .dpad-mid { display: flex; gap: 40px; }
+  .dpad-btn {
+    width: 44px; height: 44px;
+    background: var(--panel-bg);
+    border: 2px solid var(--panel-border);
+    color: var(--text);
+    font-size: 16px;
+    font-family: inherit;
+    box-shadow: 2px 2px 0 var(--shadow-dark);
+    cursor: pointer;
+    transition: all 0.05s;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .dpad-btn:active, .dpad-btn.active {
+    background: var(--pixel-cyan);
+    color: var(--bg-dark);
+    transform: translateY(2px);
+    box-shadow: 0 0 0 var(--shadow-dark);
+  }
+
   /* ═══ MOBA ANALOG JOYSTICK ═══ */
   #joystick-base {
     display: none;
-    width: 140px; height: 140px;
+    width: 180px; height: 180px;
     background: rgba(48, 232, 48, 0.05);
     border: 3px solid rgba(48, 232, 48, 0.2);
     border-radius: 50%;
@@ -456,7 +486,7 @@
     -webkit-user-select: none;
   }
   #joystick-stick {
-    width: 56px; height: 56px;
+    width: 75px; height: 75px;
     background: var(--panel-border);
     border: 3px solid var(--pixel-green);
     border-radius: 50%;
@@ -474,8 +504,12 @@
     transition: none; /* Instant follow when dragging */
   }
 
+  .mobile-only { display: none; }
+
   /* ═══ RESPONSIVE MOBILE ADJUSTMENTS ═══ */
   @media (max-width: 600px) {
+    .mobile-only { display: block; }
+
     #screen-game { flex-direction: column; justify-content: flex-start; height: 100vh; width: 100vw; }
     .hud { top: 45px; padding: 10px 20px 0; position: absolute; }
     
@@ -496,7 +530,10 @@
       display: flex; align-items: center; justify-content: center;
     }
     
-    #joystick-base { display: block !important; }
+    #joystick-base.show-ctrl-analog { display: block !important; }
+    .dpad-wrap.show-ctrl-dpad { display: flex !important; transform: none; margin-top: 0; gap: 8px; }
+    .dpad-mid { gap: 68px; display: flex; }
+    .dpad-btn { width: 60px; height: 60px; font-size: 20px; }
     
     .score-box .val { font-size: 14px; }
     .bar-btn { position: fixed; top: 15px; z-index: 100; padding: 10px; font-size: 12px; }
@@ -641,6 +678,15 @@
       </div>
     </div>
 
+    <!-- Mobile Controllers -->
+    <div class="sel-group mobile-only" id="ctrlSelectGrp">
+      <span class="sel-label">► MOBILE CONTROL</span>
+      <div class="sel-row">
+        <button class="sel-btn" data-ctrl="dpad">D-PAD<span class="sub">CLASSIC</span></button>
+        <button class="sel-btn active" data-ctrl="analog">ANALOG<span class="sub">MOBA</span></button>
+      </div>
+    </div>
+
     <button class="btn" id="btnStart">► PRESS START</button>
     <div class="status-line">
       <span class="sdot ready" id="sdot"></span>
@@ -678,6 +724,14 @@
 
   <!-- BOTTOM BAR: analog + direction + sound + surrender -->
   <div class="game-bottom-bar">
+    <div class="dpad-wrap" id="ctrl-dpad">
+      <button class="dpad-btn up" data-dir="UP">▲</button>
+      <div class="dpad-mid">
+        <button class="dpad-btn left" data-dir="LEFT">◄</button>
+        <button class="dpad-btn right" data-dir="RIGHT">►</button>
+      </div>
+      <button class="dpad-btn down" data-dir="DOWN">▼</button>
+    </div>
     <div id="joystick-base">
       <div id="joystick-stick"></div>
     </div>
@@ -1256,6 +1310,18 @@ function startCountdown() {
 
 function startGame() {
   show('screen-game');
+  
+  // Toggle mobile controller visibility based on preference
+  const joyBase = document.getElementById('joystick-base');
+  const dpadWrap = document.getElementById('ctrl-dpad');
+  if (mobileControlStyle === 'analog') {
+    if (joyBase) joyBase.classList.add('show-ctrl-analog');
+    if (dpadWrap) dpadWrap.classList.remove('show-ctrl-dpad');
+  } else {
+    if (joyBase) joyBase.classList.remove('show-ctrl-analog');
+    if (dpadWrap) dpadWrap.classList.add('show-ctrl-dpad');
+  }
+
   initGame(); drawGame();
   gameRunning = true;
   gameLoop = setInterval(gameTick, speed);
@@ -1289,8 +1355,20 @@ function goHome() {
 }
 
 // ══════════════════════════════════════════
-//  BUTTONS
+//  BUTTONS & CONTROLS SETUP
 // ══════════════════════════════════════════
+let mobileControlStyle = 'analog';
+
+// Mobile control toggle
+document.querySelectorAll('#ctrlSelectGrp .sel-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    playButtonClick();
+    document.querySelectorAll('#ctrlSelectGrp .sel-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mobileControlStyle = btn.dataset.ctrl;
+  });
+});
+
 document.getElementById('btnStart').addEventListener('click', () => {
   if (!btnStart.disabled) {
     ensureAudioCtx();
@@ -1318,6 +1396,18 @@ document.addEventListener('keydown', e => {
   };
   const d = map[e.key];
   if (d && d !== OPP[direction]) { nextDir = d; e.preventDefault(); }
+});
+
+// DPAD
+document.querySelectorAll('.dpad-btn').forEach(btn => {
+  const triggerDir = (e) => {
+    e.preventDefault();
+    if (!gameRunning) return;
+    const d = btn.dataset.dir;
+    if (d && d !== OPP[direction]) { nextDir = d; }
+  };
+  btn.addEventListener('touchstart', triggerDir, {passive: false});
+  btn.addEventListener('mousedown', triggerDir);
 });
 
 // MOBA Analog Joystick
